@@ -1,0 +1,1 @@
+﻿/*** @author Steve Shipman* @version 0.1*/package com.suckatmath.detector.classifier{	import flash.geom.Rectangle;		public interface IntegralImage {			function getWidth():int;		function getHeight():int;				function getRectSum(r:Rectangle):Number;		function getRectSqSum(r:Rectangle):Number				function update():void;	}}
