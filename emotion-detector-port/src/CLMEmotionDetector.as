@@ -1,6 +1,7 @@
 package {
     import flash.display.Sprite;
     import flash.events.Event;
+    import flash.utils.getTimer;
 
     public class CLMEmotionDetector extends Sprite {
 
@@ -9,11 +10,17 @@ package {
         public var clmModel:CLMModel;
         public var ctrack:CLMTracker;
         public var faceTracker:FaceTracker;
-        public var video:CameraVideo;
+        public var video:Webcam;
+
+        private var updateTime:uint;
+        private var lastUpdateTimeCamera:uint = 0;
+        private var lastUpdateTimeFaceTracker:uint = 0;
+
+
 
 
         public function CLMEmotionDetector() {
-            if(!stage){
+            if (!stage) {
                 addEventListener(Event.ADDED_TO_STAGE, addedToStage);
             } else addedToStage(null);
         }
@@ -35,66 +42,101 @@ package {
             emotionClassifier.init(emotionModel.data);
             var emotionData = emotionClassifier.getBlank();
 
-            video = new CameraVideo();
-            video.addEventListener(CameraVideo.CAMERA_INIT_COMPLETE, cameraInitComplete);
+            video = new Webcam();
+            video.addEventListener(Webcam.WEBCAM_NOT_FOUND, cameraNotFound);
+            video.addEventListener(Webcam.WEBCAM_INIT_FAIL, cameraInitFail);
+            video.addEventListener(Webcam.WEBCAM_INIT_COMPLETE, cameraInitComplete);
             addChild(video);
         }
 
-        private function cameraInitComplete(e:Event):void {
-            video.removeEventListener(CameraVideo.CAMERA_INIT_COMPLETE, cameraInitComplete);
+        private function removeCameraListeners():void {
+            video.removeEventListener(Webcam.WEBCAM_INIT_COMPLETE, cameraInitComplete);
+            video.removeEventListener(Webcam.WEBCAM_INIT_FAIL, cameraInitFail);
+            video.removeEventListener(Webcam.WEBCAM_NOT_FOUND, cameraNotFound);
+        }
 
+        private function cameraInitFail(e:Event):void {
+            removeCameraListeners();
+            graphics.beginFill(0xff0000);
+            graphics.drawRect(0, 0, 950, 250);
+        }
+
+        private function cameraNotFound(e:Event):void {
+            removeCameraListeners();
+            graphics.beginFill(0xff0000);
+            graphics.drawRect(0, 0, 950, 250);
+        }
+
+        private function cameraInitComplete(e:Event):void {
+            removeCameraListeners();
             faceTracker = new FaceTracker();
             faceTracker.bitmapData = video.bitmapData;
+            faceTracker.addEventListener(FaceTracker.FACE_TRACKER_INIT_COMPLETE, faceTrackerInitComplete);
             addChild(faceTracker);
+        }
 
+        private function faceTrackerInitComplete(e:Event):void {
+            faceTracker.removeEventListener(e.type, arguments.callee);
             start();
         }
 
         public function start() {
-            // start video
-            video.play();
-            // start tracking
             ctrack.start(video.bitmapData);
             addEventListener(Event.ENTER_FRAME, enterFrame);
         }
 
         private function enterFrame(e:Event):void {
-            if (ctrack.getCurrentPosition()) {
-                // check players emotions vs current target emotion
+
+            updateTime = getTimer();
+
+            if (updateTime - lastUpdateTimeCamera > 1000 / 15) {
+                lastUpdateTimeCamera = updateTime;
+                video.update();
             }
-            var cp = ctrack.getCurrentParameters();
-            var er = emotionClassifier.meanPredict(cp);
-            if (er) {
-                //updateData(er);
-                for (var i = 0;i < er.length;i++) {
-                    if (er[i].value > 0.4) {
-                        // detect success
-                    } else {
-                        // detect fail
+
+            if (updateTime - lastUpdateTimeFaceTracker > 1000 / 6) {
+                lastUpdateTimeFaceTracker = updateTime;
+
+                if (faceTracker.update()) {
+                    ctrack.box = faceTracker.faceRect;
+                    if (ctrack.getCurrentPosition()) {
+                        // check players emotions vs current target emotion
+                    }
+                    var cp:Array = ctrack.getCurrentParameters();
+                    var er:Array = emotionClassifier.meanPredict(cp);
+                    if (er) {
+                        //updateData(er);
+                        for (var i:int = 0; i < er.length; i++) {
+                            if (er[i].value > 0.4) {
+                                // detect success
+                            } else {
+                                // detect fail
+                            }
+                        }
                     }
                 }
             }
         }
 
-        private function updateData(data:Object):void {
-            // update
-            /*var rects = svg.selectAll("rect")
-                    .data(data)
-                    .attr("y", function(datum) { return height - y(datum.value); })
-                    .attr("height", function(datum) { return y(datum.value); });
-            var texts = svg.selectAll("text.labels")
-                    .data(data)
-                    .attr("y", function(datum) { return height - y(datum.value); })
-                    .text(function(datum) { return datum.value.toFixed(1);});*/
+        //private function updateData(data:Object):void {
+        // update
+        /*var rects = svg.selectAll("rect")
+         .data(data)
+         .attr("y", function(datum) { return height - y(datum.value); })
+         .attr("height", function(datum) { return y(datum.value); });
+         var texts = svg.selectAll("text.labels")
+         .data(data)
+         .attr("y", function(datum) { return height - y(datum.value); })
+         .text(function(datum) { return datum.value.toFixed(1);});*/
 
-            // enter
-            //rects.enter().append("svg:rect");
-            //texts.enter().append("svg:text");
+        // enter
+        //rects.enter().append("svg:rect");
+        //texts.enter().append("svg:text");
 
-            // exit
-            //rects.exit().remove();
-            //texts.exit().remove();
-        }
+        // exit
+        //rects.exit().remove();
+        //texts.exit().remove();
+        //}
 
     }
 }

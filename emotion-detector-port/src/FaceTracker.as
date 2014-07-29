@@ -11,6 +11,9 @@
     import flash.net.URLRequest;
 
     public class FaceTracker extends Sprite {
+
+        public static const FACE_TRACKER_INIT_COMPLETE:String = "faceTrackerInitComplete";
+
         public function FaceTracker():void {
             if (stage) init();
             else addEventListener(Event.ADDED_TO_STAGE, init);
@@ -18,9 +21,8 @@
 
         public var detector:Detector;
         public var bitmapData:BitmapData;
-        public var faceBitmapData:BitmapData;
         public var output:Sprite;
-        public var faceRect:Rectangle;
+        public var faceRect:Rectangle = new Rectangle( 100, 100, 100, 250);
         private var myLoader:URLLoader;
 
         private function init(e:Event = null):void {
@@ -34,8 +36,6 @@
 
             output = new Sprite();
             addChild(output);
-
-            faceBitmapData = new BitmapData(320, 240, false);
         }
 
 
@@ -43,23 +43,24 @@
             var myXML:XML = XML(myLoader.data);
             var classifier:HaarClassifier = HaarClassifier.fromXML(myXML.*.(@type_id == "opencv-haar-classifier")[0]);
 
-            detector = new BigToSmallDetector(classifier, 1, 30); //new Detector(classifier, 1, 30);
+            detector = new BigToSmallDetector(classifier, 1, 60); //new Detector(classifier, 1, 30);
             if (bitmapData) {
                 detector.bitmap = bitmapData;
             }
-            addEventListener(Event.ENTER_FRAME, enterFrame);
+            dispatchEvent(new Event(FACE_TRACKER_INIT_COMPLETE));
         }
 
-        private function enterFrame(e:Event):void {
+        public function update():Boolean {
             var faceRects:Vector.<Rectangle> = detector.detect();
             if (faceRects) {
-                for (var i:int = 0; i < faceRects.length; i++) {
-                    output.graphics.clear();
-                    output.graphics.lineStyle(2, 0x00ff00);
-                    output.graphics.drawRect(faceRects[i].x, faceRects[i].y, faceRects[i].width, faceRects[i].height);
-                    faceRect = faceRects[i].clone();
-                }
+                var faceRect:Rectangle = faceRects[0];
+                output.graphics.clear();
+                output.graphics.lineStyle(1, 0x00ff00);
+                output.graphics.drawRect(faceRect.x, faceRect.y, faceRect.width, faceRect.height);
+                this.faceRect.copyFrom(faceRect);
+                return true;
             }
+            else return false;
         }
     }
 

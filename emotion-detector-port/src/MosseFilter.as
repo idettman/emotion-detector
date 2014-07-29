@@ -1,4 +1,5 @@
 package {
+    import flash.display.BitmapData;
 
     public class MosseFilter {
 
@@ -173,12 +174,12 @@ package {
             return filtered;
         }
 
-        function track(input, left:Number, top:Number, width:Number, height:Number, updateFilter:Boolean, gaussianPrior, calcPSR) {
+        function track(input:BitmapData, left:Number, top:Number, width:Number, height:Number, updateFilter:Boolean, gaussianPrior:Array = null, calcPSR:Boolean = false):Array {
             // finds position of filter in input image
 
             if (!_filter) {
                 //console.log("Mosse-filter needs to be initialized or trained before starting tracking.");
-                return false;
+                return null;
             }
 
            /* if (input.tagName == "VIDEO" || input.tagName == "IMG") {
@@ -335,7 +336,7 @@ package {
             // check if output is strong enough
             // if not, return false?
             if (max < 0) {
-                return false;
+                return null;
             } else {
                 return maxpos;
             }
