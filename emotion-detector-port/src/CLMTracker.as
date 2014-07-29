@@ -32,7 +32,7 @@ package {
         private var msmodelheight:Number;
         private var scoringWeights:Vector.<Number>;
         private var scoringBias:Number;
-        private var biases:Number;
+        private var biases:Object;
         private var weights:Object;
         private var svmFi:SVMFilter;
         private var pw:int;
@@ -71,7 +71,7 @@ package {
         public var box:Rectangle;
         public var candidate:Rectangle;
 
-        private var scoringHistory:Array;
+        private var scoringHistory:Array = [];
         private var meanscore:Number = 0;
 
 
@@ -154,17 +154,15 @@ package {
 
             // get scoringweights if they exist
             if (this.model.scoring) {
-                scoringWeights = new Vector.<Number>(parseInt(this.model.scoring.coef));
+                scoringWeights = Vector.<Number>(this.model.scoring.coef);
                 scoringBias = parseFloat(this.model.scoring.bias);
-                //scoringCanvas.width = this.model.scoring.size[0];
-                //scoringCanvas.height = this.model.scoring.size[1];
             }
 
             // load eigenvalues
             eigenValues = Array(this.model.shapeModel.eigenValues);
 
             weights = this.model.patchModel.weights;
-            biases = parseFloat(this.model.patchModel.bias);
+            biases = this.model.patchModel.bias;
 
             // precalculate gaussianPriorDiagonal
             gaussianPD = Numeric.rep([numParameters+4, numParameters+4],0);
@@ -183,11 +181,9 @@ package {
             }
 
 
-            if (patchType == "svm") {
-                svmFi = new SVMFilter();
-                svmFi.init(weights['raw'], biases['raw'], numPatches, patchSize, searchWindow);
-                pw = pl = patchSize+searchWindow-1;
-            }
+            svmFi = new SVMFilter();
+            svmFi.init(weights['raw'], biases['raw'], numPatches, patchSize, searchWindow);
+            pw = pl = patchSize+searchWindow-1;
 
 
             pdataLength = pw*pl;
@@ -255,7 +251,6 @@ package {
                     if (previousParameters.length >= 2) {
                         for (var i:int = 0;i < currentParameters.length;i++) {
                             currentParameters[i] = (relaxation)*previousParameters[1][i] + (1-relaxation)*((2*previousParameters[1][i]) - previousParameters[0][i]);
-                            //currentParameters[i] = (3*previousParameters[2][i]) - (3*previousParameters[1][i]) + previousParameters[0][i];
                         }
                     }
                 }
@@ -289,15 +284,25 @@ package {
 
 
                 var pdata:Vector.<uint>, pmatrix:Vector.<Number>, grayscaleColor:Number;
+                var pixelValue:uint;
+                var red:uint;
+                var green:uint;
+                var blue:uint;
+
                 for (var i:int = 0; i < numPatches; i++) {
                     px = patchPositions[i][0]-(pw/2);
                     py = patchPositions[i][1]-(pl/2);
                     pdata = bitmapData.getVector(new Rectangle(Math.round(px), Math.round(py), pw, pl));
 
                     // convert to grayscale
-                    pmatrix = Vector.<Number>(patches[i]);
+                    pmatrix = patches[i];
+
                     for (var j:int = 0;j < pdataLength;j++) {
-                        grayscaleColor = pdata[j*4]*0.3 + pdata[(j*4)+1]*0.59 + pdata[(j*4)+2]*0.11;
+                        pixelValue = pdata[i];
+                        red = pixelValue >> 16 & 0xFF;
+                        green = pixelValue >> 8 & 0xFF;
+                        blue = pixelValue & 0xFF;
+                        grayscaleColor = red*0.3 + green*0.59 + blue*0.11;
                         pmatrix[j] = grayscaleColor;
                     }
                 }
@@ -331,14 +336,6 @@ package {
                 var eyeFilterWidth:Number = candidate.width * 6/10;
 
                 // detect position of eyes and nose via mosse filter
-                //
-                /*element.pause();
-
-                 var canvasContext = document.getElementById('overlay2').getContext('2d')
-                 canvasContext.clearRect(0,0,500,375);
-                 canvasContext.strokeRect(candidate.x, candidate.y, candidate.width, candidate.height);*/
-                //
-
                 var nose_result:Array = mossef_nose.track(element, Math.round(candidate.x+(candidate.width/2)-(noseFilterWidth/2)), Math.round(candidate.y+candidate.height*(5/8)-(noseFilterWidth/2)), noseFilterWidth, noseFilterWidth, false);
                 var right_result:Array = mossef_righteye.track(element, Math.round(candidate.x+(candidate.width*3/4)-(eyeFilterWidth/2)), Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2)), eyeFilterWidth, eyeFilterWidth, false);
                 var left_result:Array = mossef_lefteye.track(element, Math.round(candidate.x+(candidate.width/4)-(eyeFilterWidth/2)), Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2)), eyeFilterWidth, eyeFilterWidth, false);
@@ -349,33 +346,6 @@ package {
                 left_eye_position[1] = Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2))+left_result[1];
                 nose_position[0] = Math.round(candidate.x+(candidate.width/2)-(noseFilterWidth/2))+nose_result[0];
                 nose_position[1] = Math.round(candidate.y+candidate.height*(5/8)-(noseFilterWidth/2))+nose_result[1];
-
-                //
-                /*canvasContext.strokeRect(Math.round(candidate.x+(candidate.width*3/4)-(eyeFilterWidth/2)), Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2)), eyeFilterWidth, eyeFilterWidth);
-                 canvasContext.strokeRect(Math.round(candidate.x+(candidate.width/4)-(eyeFilterWidth/2)), Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2)), eyeFilterWidth, eyeFilterWidth);
-                 //canvasContext.strokeRect(Math.round(candidate.x+(candidate.width/2)-(noseFilterWidth/2)), Math.round(candidate.y+candidate.height*(3/4)-(noseFilterWidth/2)), noseFilterWidth, noseFilterWidth);
-                 canvasContext.strokeRect(Math.round(candidate.x+(candidate.width/2)-(noseFilterWidth/2)), Math.round(candidate.y+candidate.height*(5/8)-(noseFilterWidth/2)), noseFilterWidth, noseFilterWidth);
-
-                 canvasContext.fillStyle = "rgb(0,0,250)";
-                 canvasContext.beginPath();
-                 canvasContext.arc(left_eye_position[0], left_eye_position[1], 3, 0, Math.PI*2, true);
-                 canvasContext.closePath();
-                 canvasContext.fill();
-
-                 canvasContext.beginPath();
-                 canvasContext.arc(right_eye_position[0], right_eye_position[1], 3, 0, Math.PI*2, true);
-                 canvasContext.closePath();
-                 canvasContext.fill();
-
-                 canvasContext.beginPath();
-                 canvasContext.arc(nose_position[0], nose_position[1], 3, 0, Math.PI*2, true);
-                 canvasContext.closePath();
-                 canvasContext.fill();
-
-                 debugger;
-                 element.play()
-                 canvasContext.clearRect(0,0,element.width,element.height);*/
-                //
 
                 // get eye and nose positions of model
                 var lep:Array = Array(model.hints.leftEye);
@@ -389,54 +359,13 @@ package {
                 scaling = procrustes_params[2];
                 rotation = procrustes_params[3];
 
-                //element.play();
-
-                //var maxscale = 1.10;
-                //if ((scaling*modelHeight)/candidate.height < maxscale*0.7) scaling = (maxscale*0.7*candidate.height)/modelHeight;
-                //if ((scaling*modelHeight)/candidate.height > maxscale*1.2) scaling = (maxscale*1.2*candidate.height)/modelHeight;
-
-                /*var smean = [0,0];
-                 smean[0] += lep[0];
-                 smean[1] += lep[1];
-                 smean[0] += rep[0];
-                 smean[1] += rep[1];
-                 smean[0] += mep[0];
-                 smean[1] += mep[1];
-                 smean[0] /= 3;
-                 smean[1] /= 3;
-
-                 var nulep = [(lep[0]*scaling*Math.cos(-rotation)+lep[1]*scaling*Math.sin(-rotation))+translateX, (lep[0]*scaling*(-Math.sin(-rotation)) + lep[1]*scaling*Math.cos(-rotation))+translateY];
-                 var nurep = [(rep[0]*scaling*Math.cos(-rotation)+rep[1]*scaling*Math.sin(-rotation))+translateX, (rep[0]*scaling*(-Math.sin(-rotation)) + rep[1]*scaling*Math.cos(-rotation))+translateY];
-                 var numep = [(mep[0]*scaling*Math.cos(-rotation)+mep[1]*scaling*Math.sin(-rotation))+translateX, (mep[0]*scaling*(-Math.sin(-rotation)) + mep[1]*scaling*Math.cos(-rotation))+translateY];
-
-                 canvasContext.fillStyle = "rgb(200,10,100)";
-                 canvasContext.beginPath();
-                 canvasContext.arc(nulep[0], nulep[1], 3, 0, Math.PI*2, true);
-                 canvasContext.closePath();
-                 canvasContext.fill();
-
-                 canvasContext.beginPath();
-                 canvasContext.arc(nurep[0], nurep[1], 3, 0, Math.PI*2, true);
-                 canvasContext.closePath();
-                 canvasContext.fill();
-
-                 canvasContext.beginPath();
-                 canvasContext.arc(numep[0], numep[1], 3, 0, Math.PI*2, true);
-                 canvasContext.closePath();
-                 canvasContext.fill();*/
-
                 currentParameters[0] = (scaling*Math.cos(rotation))-1;
                 currentParameters[1] = (scaling*Math.sin(rotation));
                 currentParameters[2] = translateX;
                 currentParameters[3] = translateY;
 
-                //this.draw(document.getElementById('overlay'), currentParameters);
-
             } else {
                 scaling = candidate.width/modelHeight;
-                //var ccc = document.getElementById('overlay').getContext('2d');
-                //ccc.strokeRect(candidate.x,candidate.y,candidate.width,candidate.height);
-
                 translateX = candidate.x-(msxmin*scaling)+0.1*candidate.width;
                 translateY = candidate.y-(msymin*scaling)+0.25*candidate.height;
                 currentParameters[0] = scaling-1;
@@ -452,15 +381,23 @@ package {
 
         // calculate score of current fit
         private function checkTracking():Boolean {
-            //scoringContext.drawImage(sketchCanvas, Math.round(msxmin+(msmodelwidth/4.5)), Math.round(msymin-(msmodelheight/12)), Math.round(msmodelwidth-(msmodelwidth*2/4.5)), Math.round(msmodelheight-(msmodelheight/12)), 0, 0, 20, 22);
-            // getImageData of canvas
-            //var imgData = scoringContext.getImageData(0,0,20,22);
             // convert data to grayscale
             var scoringData:Vector.<uint> = new Vector.<uint>(20*22);
             var scdata:Vector.<uint> = bitmapData.getVector(new Rectangle(0,0,20,22));
             var scmax:uint = 0;
+
+            var pixelValue:uint;
+            var red:uint;
+            var green:uint;
+            var blue:uint;
+
             for (var i:int = 0;i < 20*22;i++) {
-                scoringData[i] = scdata[i*4]*0.3 + scdata[(i*4)+1]*0.59 + scdata[(i*4)+2]*0.11;
+                pixelValue = scdata[i];
+                red = pixelValue >> 16 & 0xFF;
+                green = pixelValue >> 8 & 0xFF;
+                blue = pixelValue & 0xFF;
+
+                scoringData[i] = red*0.3 + green*0.59 + blue*0.11;
                 scoringData[i] = Math.log(scoringData[i]+1);
                 if (scoringData[i] > scmax) scmax = scoringData[i];
             }
@@ -619,7 +556,6 @@ package {
          *	get coordinates of current model fit
          */
         public function getCurrentPosition():Array {
-            trace("pos");
             /*var startTime:int = (new Date()).getTime();
             while (((new Date()).getTime() - startTime) < 16) {
                 var tracking:Boolean = this.track();

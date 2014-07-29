@@ -1,6 +1,7 @@
 package {
     import flash.display.Sprite;
     import flash.events.Event;
+    import flash.geom.Rectangle;
     import flash.utils.getTimer;
 
     public class CLMEmotionDetector extends Sprite {
@@ -101,6 +102,9 @@ package {
                     ctrack.box = faceTracker.faceRect;
                     if (ctrack.getCurrentPosition()) {
                         // check players emotions vs current target emotion
+
+                        video.bitmapData.fillRect(new Rectangle(0, 0, 100, 100), 0xff0000);
+
                     }
                     var cp:Array = ctrack.getCurrentParameters();
                     var er:Array = emotionClassifier.meanPredict(cp);

@@ -10,7 +10,7 @@ package {
         function fft_inplace (array:Array, _im_part:Array = null):Array {
             // in-place
 
-            if (_im_part) {
+            if (!_im_part) {
                 _im_part = temp_imag_part;
             }
 
@@ -136,7 +136,7 @@ package {
                 }
 
                 // logistic transformation
-                responses[i] = logisticResponse(responses[i]);
+                responses[i] = logisticResponse(Vector.<Number>(responses[i]));
 
                 // normalization?
                 inplaceNormalizeFilterMatrix(responses[i]);
@@ -145,7 +145,7 @@ package {
             return responses;
         }
 
-        function normalizePatches (patch:Array):Array {
+        function normalizePatches (patch:Vector.<Number>):Vector.<Number> {
             var patch_width:uint = filter_width-1+search_width;
             var max:Number = 0;
             var min:Number = 1000;
@@ -171,7 +171,7 @@ package {
             return patch;
         }
 
-        function logisticResponse (response:Array):Array {
+        function logisticResponse (response:Vector.<Number>):Vector.<Number> {
             // create probability by doing logistic transformation
             for (var j:int = 0;j < search_width;j++) {
                 for (var k:int = 0;k < search_width;k++) {
@@ -192,7 +192,7 @@ package {
             return x;
         }
 
-        function inplaceNormalizeFilterMatrix (response:Array):void {
+        function inplaceNormalizeFilterMatrix (response:Vector.<Number>):void {
             // normalize responses to lie within [0,1]
             var msize:int = response.length;
             var max:Number = 0;
