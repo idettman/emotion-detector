@@ -1,9 +1,10 @@
 package {
     import flash.display.BitmapData;
-    import flash.errors.EOFError;
+    import flash.events.Event;
+    import flash.events.EventDispatcher;
     import flash.geom.Rectangle;
 
-    public class CLMTracker {
+    public class CLMTracker extends EventDispatcher{
 
         var params:Object;
         var numPatches:int;
@@ -47,12 +48,23 @@ package {
         private var relaxation:Number = 0.1;
 
         private const halfPI:Number = Math.PI/2;
-
+        var convergenceLimit = 0.01;
 
         var eigenVectors:Array;
         var eigenValues:Array;
 
 
+        /*
+         It's possible to experiment with the sequence of variances used for the finding the maximum in the KDE.
+         This sequence is pretty arbitrary, but was found to be okay using some manual testing.
+         */
+        var varianceSeq:Array = [10,5,1];
+        //var varianceSeq = [3,1.5,0.75];
+        //var varianceSeq = [6,3,0.75];
+
+
+        var updatePosition:Vector.<Number> = new Vector.<Number>(2);
+        var vecpos:Vector.<Number> = new Vector.<Number>(2);
 
 
         private var learningRate:Array;
@@ -159,7 +171,7 @@ package {
             }
 
             // load eigenvalues
-            eigenValues = Array(this.model.shapeModel.eigenValues);
+            eigenValues = (this.model.shapeModel.eigenValues as Array);
 
             weights = this.model.patchModel.weights;
             biases = this.model.patchModel.bias;
@@ -168,7 +180,7 @@ package {
             gaussianPD = Numeric.rep([numParameters+4, numParameters+4],0);
             // set values and append manual inverse
             for (var i:int = 0;i < numParameters;i++) {
-                if (this.model.shapeModel.nonRegularizedVectors.indexOf(i) >= 0) {
+                if (Array(this.model.shapeModel.nonRegularizedVectors).indexOf(i) >= 0) {
                     gaussianPD[i+4][i+4] = 1/10000000;
                 } else {
                     gaussianPD[i+4][i+4] = 1/eigenValues[i];
@@ -242,6 +254,7 @@ package {
                 translateX = parseFloat(gi[2]);
                 translateY = parseFloat(gi[3]);
 
+
                 first = false;
             } else {
                 facecheck_count += 1;
@@ -264,64 +277,318 @@ package {
                 scaling = parseFloat(currentParameters[1]) / Math.sin(rotation);
                 translateX = parseFloat(currentParameters[2]);
                 translateY = parseFloat(currentParameters[3]);
+            }
 
-                //	get cropped images around new points based on model parameters (not scaled and translated)
-                var patchPositions:Array = calculatePositions(currentParameters, false);
 
-                // check whether tracking is ok
-                if (scoringWeights && (facecheck_count % 10 == 0)) {
-                    if (!checkTracking()) {
-                        // reset all parameters
-                        first = true;
-                        scoringHistory = [];
-                        for (var i:int = 0;i < currentParameters.length;i++) {
-                            currentParameters[i] = 0;
-                            previousParameters = [];
-                        }
-                        return false;
+            //	get cropped images around new points based on model parameters (not scaled and translated)
+            var patchPositions:Array = calculatePositions(currentParameters, false);
+
+            // check whether tracking is ok
+            if (scoringWeights && (facecheck_count % 10 == 0)) {
+                if (!checkTracking()) {
+                    // reset all parameters
+                    first = true;
+                    scoringHistory = [];
+                    for (var i:int = 0;i < currentParameters.length;i++) {
+                        currentParameters[i] = 0;
+                        previousParameters = [];
                     }
+                    return false;
                 }
+            }
 
 
-                var pdata:Vector.<uint>, pmatrix:Vector.<Number>, grayscaleColor:Number;
-                var pixelValue:uint;
-                var red:uint;
-                var green:uint;
-                var blue:uint;
+            var pdata:Vector.<uint>, pmatrix:Vector.<Number>, grayscaleColor:Number;
+            var pixelValue:uint;
+            var red:uint;
+            var green:uint;
+            var blue:uint;
 
-                for (var i:int = 0; i < numPatches; i++) {
-                    px = patchPositions[i][0]-(pw/2);
-                    py = patchPositions[i][1]-(pl/2);
-                    pdata = bitmapData.getVector(new Rectangle(Math.round(px), Math.round(py), pw, pl));
+            for (var i:int = 0; i < numPatches; i++) {
+                px = patchPositions[i][0]-(pw/2);
+                py = patchPositions[i][1]-(pl/2);
+                pdata = bitmapData.getVector(new Rectangle(Math.round(px), Math.round(py), pw, pl));
 
-                    // convert to grayscale
-                    pmatrix = patches[i];
+                // convert to grayscale
+                pmatrix = patches[i];
 
-                    for (var j:int = 0;j < pdataLength;j++) {
-                        pixelValue = pdata[i];
-                        red = pixelValue >> 16 & 0xFF;
-                        green = pixelValue >> 8 & 0xFF;
-                        blue = pixelValue & 0xFF;
-                        grayscaleColor = red*0.3 + green*0.59 + blue*0.11;
-                        pmatrix[j] = grayscaleColor;
-                    }
+                for (var j:int = 0;j < pdataLength;j++) {
+                    pixelValue = pdata[j];
+                    red = pixelValue >> 16 & 0xFF;
+                    green = pixelValue >> 8 & 0xFF;
+                    blue = pixelValue & 0xFF;
+                    grayscaleColor = red*0.3 + green*0.59 + blue*0.11;
+                    pmatrix[j] = grayscaleColor;
                 }
+            }
 
 
-                if (patchType == "SVM") {
-                    responses = svmFi.getResponses(patches);
-                }
+            if (patchType == "SVM") {
+                responses = svmFi.getResponses(patches);
+            }
 
-                // option to increase sharpness of responses
-                if (params.sharpenResponse) {
-                    for (var i:int = 0;i < numPatches;i++) {
-                        for (var j:int = 0;j < responses[i].length;j++) {
-                            responses[i][j] = Math.pow(responses[i][j], params.sharpenResponse);
-                        }
+            // option to increase sharpness of responses
+            if (params.sharpenResponse) {
+                for (var i:int = 0;i < numPatches;i++) {
+                    for (var j:int = 0;j < responses[i].length;j++) {
+                        responses[i][j] = Math.pow(responses[i][j], (params.sharpenResponse)?1:0);
                     }
                 }
             }
-            return true;
+
+
+            // - VERIFIED UP TO THIS POINT - IAD
+
+
+            // iterate until convergence or max 10, 20 iterations?:
+            var originalPositions:Array = currentPositions;
+            var jac:Array;
+            var meanshiftVectors:Array = [];
+
+            for (var i:int = 0; i < varianceSeq.length; i++) {
+
+                // calculate jacobian
+                jac = createJacobian(currentParameters, eigenVectors);
+
+                var opj0, opj1;
+
+                for (var j = 0;j < numPatches;j++) {
+                    opj0 = originalPositions[j][0]-((searchWindow-1)*scaling/2);
+                    opj1 = originalPositions[j][1]-((searchWindow-1)*scaling/2);
+
+                    // calculate PI x gaussians
+                    var vpsum:uint = gpopt(searchWindow, currentPositions[j], updatePosition, vecProbs, responses, opj0, opj1, j, varianceSeq[i], scaling);
+
+                    // calculate meanshift-vector
+                    gpopt2(searchWindow, vecpos, updatePosition, vecProbs, vpsum, opj0, opj1, scaling);
+                    meanshiftVectors[j] = [vecpos[0] - currentPositions[j][0], vecpos[1] - currentPositions[j][1]];
+                }
+
+                var meanShiftVector:Array = Numeric.rep([numPatches*2, 1],0.0);
+                for (var k:int = 0;k < numPatches;k++) {
+                    meanShiftVector[k*2][0] = meanshiftVectors[k][0];
+                    meanShiftVector[(k*2)+1][0] = meanshiftVectors[k][1];
+                }
+                
+                // compute pdm parameter update
+                var prior:Array = Numeric.mul(gaussianPD, varianceSeq[i]);
+                var jtj:Array;
+                var jtv:Array;
+
+                if (params.weightPoints) {
+                    jtj = Numeric.dot(Numeric.transpose(jac), Numeric.dot(pointWeights, jac));
+                } else {
+                    jtj = Numeric.dot(Numeric.transpose(jac), jac);
+                }
+                var cpMatrix:Array = Numeric.rep([numParameters+4, 1],0.0);
+                for (var l:int = 0;l < (numParameters+4);l++) {
+                    cpMatrix[l][0] = currentParameters[l];
+                }
+                var priorP:Array = Numeric.dot(prior, cpMatrix);
+                if (params.weightPoints) {
+                    jtv = Numeric.dot(Numeric.transpose(jac), Numeric.dot(pointWeights, meanShiftVector));
+                } else {
+                    jtv = Numeric.dot(Numeric.transpose(jac), meanShiftVector);
+                }
+                var paramUpdateLeft:Array = Numeric.add(prior, jtj);
+                var paramUpdateRight:Array = Numeric.sub(priorP, jtv);
+                var paramUpdate:Array = Numeric.dot(Numeric.inv(paramUpdateLeft), paramUpdateRight);
+
+                var oldPositions:Array = currentPositions;
+
+                // update estimated parameters
+                for (var k:int = 0;k < numParameters+4;k++) {
+                    currentParameters[k] -= paramUpdate[k];
+                }
+
+                // clipping of parameters if they're too high
+                var clip:Number;
+                for (var k:int = 0;k < numParameters;k++) {
+                    clip = Math.abs(3*Math.sqrt(eigenValues[k]));
+                    if (Math.abs(currentParameters[k+4]) > clip) {
+                        if (currentParameters[k+4] > 0) {
+                            currentParameters[k+4] = clip;
+                        } else {
+                            currentParameters[k+4] = -clip;
+                        }
+                    }
+                }
+
+                // update current coordinates
+                currentPositions = calculatePositions(currentParameters, true);
+
+                // check if converged
+                // calculate norm of parameterdifference
+                var positionNorm:Number = 0;
+                var pnsq_x:Number, pnsq_y:Number;
+                for (var k:int = 0;k < currentPositions.length;k++) {
+                    pnsq_x = (currentPositions[k][0]-oldPositions[k][0]);
+                    pnsq_y = (currentPositions[k][1]-oldPositions[k][1]);
+                    positionNorm += ((pnsq_x*pnsq_x) + (pnsq_y*pnsq_y));
+                }
+
+                // if norm < limit, then break
+                if (positionNorm < convergenceLimit) {
+                    break;
+                }
+
+            }
+
+            if (params.constantVelocity) {
+                // add current parameter to array of previous parameters
+                previousParameters.push(currentParameters.slice());
+                previousParameters.splice(0, previousParameters.length == 3 ? 1 : 0);
+            }
+
+            // store positions, for checking convergence
+            previousPositions.splice(0, previousPositions.length == 10 ? 1 : 0);
+            previousPositions.push(currentPositions.slice(0));
+
+            if (this.getConvergence() < 0.5) {
+                // we must get a score before we can say we've converged
+                if (scoringHistory.length >= 5) {
+                    if (params.stopOnConvergence) {
+                        //this.stop();
+                    }
+                }
+            }
+
+            // return new points
+            return currentPositions;
+        }
+
+
+        /*
+         *	Get the average of recent model movements
+         *	Used for checking whether model fit has converged
+         */
+        public function getConvergence():Number {
+            if (previousPositions.length < 10) return 999999;
+
+            var prevX:Number = 0.0;
+            var prevY:Number = 0.0;
+            var currX:Number = 0.0;
+            var currY:Number = 0.0;
+
+            // average 5 previous positions
+            for (var i:int = 0;i < 5;i++) {
+                for (var j:int = 0;j < numPatches;j++) {
+                    prevX += previousPositions[i][j][0];
+                    prevY += previousPositions[i][j][1];
+                }
+            }
+            prevX /= 5;
+            prevY /= 5;
+
+            // average 5 positions before that
+            for (var i:int = 5;i < 10;i++) {
+                for (var j:int = 0;j < numPatches;j++) {
+                    currX += previousPositions[i][j][0];
+                    currY += previousPositions[i][j][1];
+                }
+            }
+            currX /= 5;
+            currY /= 5;
+
+            // calculate difference
+            var diffX:Number = currX-prevX;
+            var diffY:Number = currY-prevY;
+            var msavg:Number = ((diffX*diffX) + (diffY*diffY));
+            msavg /= previousPositions.length;
+            return msavg;
+        }
+
+
+        // part one of meanshift calculation
+        private function gpopt (responseWidth, currentPositionsj, updatePosition, vecProbs, responses, opj0, opj1, j, variance, scaling):uint {
+            var pos_idx:uint = 0;
+            var vpsum:Number = 0;
+            var dx:Number, dy:Number;
+            for (var k:int = 0;k < responseWidth;k++) {
+                updatePosition[1] = opj1+(k*scaling);
+                for (var l:int = 0;l < responseWidth;l++) {
+                    updatePosition[0] = opj0+(l*scaling);
+
+                    dx = currentPositionsj[0] - updatePosition[0];
+                    dy = currentPositionsj[1] - updatePosition[1];
+                    vecProbs[pos_idx] = responses[j][pos_idx] * Math.exp(-0.5*((dx*dx)+(dy*dy))/(variance*scaling));
+
+                    vpsum += vecProbs[pos_idx];
+                    pos_idx++;
+                }
+            }
+
+            return vpsum;
+        }
+
+        // part two of meanshift calculation
+        private function gpopt2 (responseWidth, vecpos, updatePosition, vecProbs, vpsum, opj0, opj1, scaling):void {
+            //for debugging
+            //var vecmatrix = [];
+
+            var pos_idx = 0;
+            var vecsum = 0;
+            vecpos[0] = 0;
+            vecpos[1] = 0;
+            for (var k = 0;k < responseWidth;k++) {
+                updatePosition[1] = opj1+(k*scaling);
+                for (var l = 0;l < responseWidth;l++) {
+                    updatePosition[0] = opj0+(l*scaling);
+                    vecsum = vecProbs[pos_idx]/vpsum;
+
+                    //for debugging
+                    //vecmatrix[k*responseWidth + l] = vecsum;
+
+                    vecpos[0] += vecsum*updatePosition[0];
+                    vecpos[1] += vecsum*updatePosition[1];
+                    pos_idx++;
+                }
+            }
+            // for debugging
+            //return vecmatrix;
+        }
+
+
+        // generates the jacobian matrix used for optimization calculations
+        private function createJacobian (parameters:Array, eigenVectors:Array):Array {
+
+            var jacobian:Array = Numeric.rep([2*numPatches, numParameters+4],0.0);
+            var j0,j1;
+            for (var i = 0;i < numPatches;i ++) {
+                // 1
+                j0 = meanShape[i][0];
+                j1 = meanShape[i][1];
+                for (var p = 0;p < numParameters;p++) {
+                    j0 += parameters[p+4]*eigenVectors[i*2][p];
+                    j1 += parameters[p+4]*eigenVectors[(i*2)+1][p];
+                }
+                jacobian[i*2][0] = j0;
+                jacobian[(i*2)+1][0] = j1;
+                // 2
+                j0 = meanShape[i][1];
+                j1 = meanShape[i][0];
+                for (var p = 0;p < numParameters;p++) {
+                    j0 += parameters[p+4]*eigenVectors[(i*2)+1][p];
+                    j1 += parameters[p+4]*eigenVectors[i*2][p];
+                }
+                jacobian[i*2][1] = -j0;
+                jacobian[(i*2)+1][1] = j1;
+                // 3
+                jacobian[i*2][2] = 1;
+                jacobian[(i*2)+1][2] = 0;
+                // 4
+                jacobian[i*2][3] = 0;
+                jacobian[(i*2)+1][3] = 1;
+                // the rest
+                for (var j = 0;j < numParameters;j++) {
+                    j0 = parameters[0]*eigenVectors[i*2][j] - parameters[1]*eigenVectors[(i*2)+1][j] + eigenVectors[i*2][j];
+                    j1 = parameters[0]*eigenVectors[(i*2)+1][j] + parameters[1]*eigenVectors[i*2][j] + eigenVectors[(i*2)+1][j];
+                    jacobian[i*2][j+4] = j0;
+                    jacobian[(i*2)+1][j+4] = j1;
+                }
+            }
+
+            return jacobian;
         }
 
 
@@ -348,9 +615,9 @@ package {
                 nose_position[1] = Math.round(candidate.y+candidate.height*(5/8)-(noseFilterWidth/2))+nose_result[1];
 
                 // get eye and nose positions of model
-                var lep:Array = Array(model.hints.leftEye);
-                var rep:Array = Array(model.hints.rightEye);
-                var mep:Array = Array(model.hints.nose);
+                var lep:Array = (model.hints.leftEye) as Array;
+                var rep:Array = (model.hints.rightEye) as Array;
+                var mep:Array = (model.hints.nose) as Array;
 
                 // get scaling, rotation, etc. via procrustes analysis
                 var procrustes_params:Array = procrustes([left_eye_position, right_eye_position, nose_position], [lep, rep, mep]);
@@ -382,7 +649,7 @@ package {
         // calculate score of current fit
         private function checkTracking():Boolean {
             // convert data to grayscale
-            var scoringData:Vector.<uint> = new Vector.<uint>(20*22);
+            var scoringData:Vector.<Number> = new Vector.<Number>(20*22);
             var scdata:Vector.<uint> = bitmapData.getVector(new Rectangle(0,0,20,22));
             var scmax:uint = 0;
 

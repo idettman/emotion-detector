@@ -162,14 +162,14 @@ package {
         // http://images.apple.com/acg/pdf/g4fft.pdf
         // http://www.ti.com/lit/an/spra291/spra291.pdf
         function real_fft2d (re, im) {
-            var i = 0, i2 = 0;
-            var fftlen = (_n*_n)-1;
+            var i:int = 0, i2:int = 0;
+            var fftlen:int = (_n*_n)-1;
             // x-axis
-            for(var y=0; y<_n; y += 2) {
+            for(var y:int=0; y<_n; y += 2) {
                 i = y*_n;
                 i2 = (y+1)*_n;
                 // tangle
-                for(var x1=0; x1<_n; x1++) {
+                for(var x1:int=0; x1<_n; x1++) {
                     _tre[x1] = re[x1 + i];
                     _tim[x1] = re[x1 + i2];
                 }
@@ -183,7 +183,7 @@ package {
                 re[_n/2 + i2] = _tim[_n/2];
                 im[_n/2 + i] = 0;
                 im[_n/2 + i2] = 0;
-                for(var x2=1;x2<(_n/2);x2++) {
+                for(var x2:int=1;x2<(_n/2);x2++) {
                     re[x2 + i] = 0.5 * (_tre[x2] + _tre[_n - x2]);
                     im[x2 + i] = 0.5 * (_tim[x2] - _tim[_n - x2]);
                     re[x2 + i2] = 0.5 * (_tim[x2] + _tim[_n - x2]);

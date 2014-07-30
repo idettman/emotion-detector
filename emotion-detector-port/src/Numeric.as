@@ -4,7 +4,7 @@ package {
 
         public static function rep (s:Array,v:int,k:int=0):Array {
             var n:int = s[k];
-            var ret:Array = Array(n);
+            var ret:Array = new Array(n);
             var i:int;
 
             if(k === s.length-1) {
@@ -18,7 +18,7 @@ package {
 
 
         public static function diag(d:Array):Array {
-            var i:int,i1:int,j:int,n:int = d.length, A:Array = Array(n), Ai:Array;
+            var i:int,i1:int,j:int,n:int = d.length, A:Array = new Array(n), Ai:Array;
 
             for(i=n-1;i>=0;i--) {
                 Ai = Array(n);
@@ -39,11 +39,15 @@ package {
             return A;
         }
 
-        private static function _biforeach2(x:Array,y:*,s:Array,k:int,f:Function) {
-            if(k === s.length-1) { return f(x,y); }
-            var i:int,n:int=s[k],ret:Array = Array(n);
+        public static function _biforeach2(x:Array, y:*, s:Array, k:int, f:Function):Array {
+            if(k == s.length-1) { return f(x,y); }
+            var i:int,n:int=s[k],ret:Array = new Array(n);
+
+            var typedY:*;
+
             for(i=n-1;i>=0;--i) {
-                ret[i] =_biforeach2(x[i], (y is Object)? y[i]: y, s, k+1, f);
+                typedY = (y is Array)? y[i]: y;
+                ret[i] =_biforeach2(x[i], typedY, s, k+1, f);
             }
             return ret;
         }
@@ -53,9 +57,9 @@ package {
             return [x.length,y.length];
         }
 
-        public static function mulVS(x:Array,y:Number) {
+        public static function mulVS(x:Array,y:Number):Array {
             var _n:int = x.length;
-            var i:int, ret:Array = Array(_n);
+            var i:int, ret:Array = new Array(_n);
 
             for(i=_n-1;i!==-1;--i) {
                 ret[i] = x[i] * y;
@@ -63,19 +67,18 @@ package {
             return ret;
         }
 
-        public static function mul():Array {
+        public static function mul(... arguments):Array {
             var n:int = arguments.length, i:int, x:Array = arguments[0];
-            var VS:Function = mulVS;
-            var dim:Function = dim;
+
             for(i=1;i!==n;++i) {
-                x = _biforeach2(x,arguments[i],dim(x),0,VS);
+                x = _biforeach2(x,arguments[i],dim(x),0,mulVS);
             }
             return x;
         }
 
-        public function transpose(x:Array):Array {
+        public static function transpose(x:Array):Array {
             var i:int, j:int, m:int = x.length, n:int = Array(x[0]).length, ret:Array = Array(n), A0:Array, A1:Array, Bj:Array;
-            for (j = 0; j < n; j++) ret[j] = Array(m);
+            for (j = 0; j < n; j++) ret[j] = new Array(m);
             for (i = m - 1; i >= 1; i -= 2) {
                 A1 = x[i];
                 A0 = x[i - 1];
@@ -109,22 +112,41 @@ package {
         }
 
         public static function dot(x:Array,y:Array):Array {
-            return dotMMbig(x,y);
+
+            var p:int = y.length, v:Array = new Array(p);
+            var m:int = x.length, n:int = y[0].length, A:Array = new Array(m), xj:Array;
+
+            var i:int,j:int,z:int;
+            --p;
+            --m;
+            for(i=m;i!==-1;--i) A[i] = new Array(n);
+            --n;
+            for(i=n;i!==-1;--i) {
+                _getCol(y,i,v);
+                for(j=m;j!==-1;--j) {
+                    z=0;
+                    xj = x[j];
+                    A[j][i] = dotVV(xj,v);
+                }
+            }
+            return A;
         }
 
-        public static function sub():Array {
+        public static function sub(... arguments):Array {
             var n:int = arguments.length, i, x:Array = arguments[0], y:Array;
-            var VV = subVV;
-            var dim = dim;
+
             for(i=1;i!==n;++i) {
                 y = arguments[i];
-                x = _biforeach2(x,y,dim(x),0,VV);
+                x = _biforeach2(x,y,dim(x),0,subVV);
             }
             return x;
         }
         public static function subVV(x:Array,y:Array):Array {
+
+            if (!y) return [];
+
             var _n:int = y.length;
-            var i:int, ret:Array = Array(_n);
+            var i:int, ret:Array = new Array(_n);
 
             for(i=_n-1;i!==-1;--i) {
                 ret[i] = x[i] - y[i];
@@ -132,20 +154,20 @@ package {
             return ret;
         }
 
-        public static function add():Array {
+        public static function add(... arguments):Array {
             var n:int = arguments.length, i:int, x:Array = arguments[0];
-            var VV:Function = addVV;
-            var dim:Function = dim;
-            for(i=1;i!==n;++i) {
-                x = _biforeach2(x, arguments[i], dim(x), 0, VV);
+
+            for(i=1;i != n; ++i) {
+                x = _biforeach2(x, arguments[i], dim(x), 0, addVV);
             }
             return x;
         }
 
         public static function addVV(x:Array, y:Array):Array{
+            if (!y) return [];
 
             var _n:int = y.length;
-            var i:int, ret:Array = Array(_n);
+            var i:int, ret:Array = new Array(_n);
 
             for(i=_n-1;i!==-1;--i) {
                 ret[i] = x[i] + y[i];
@@ -153,34 +175,14 @@ package {
             return ret;
         }
 
-        private static function _getCol(A:Array,j:int,x:Array) {
+        private static function _getCol(A:Array,j:int,x:Array):void {
             var n:int = A.length, i:int;
             for(i=n-1;i>0;--i) {
                 x[i] = A[i][j];
                 --i;
                 x[i] = A[i][j];
             }
-            if(i===0) x[0] = A[0][j];
-        }
-
-        public static function dotMMbig(x:Array,y:Array):Array {
-            var gc:Function = _getCol, p:int = y.length, v:Array = Array(p);
-            var m:int = x.length, n:int = y[0].length, A:Array = new Array(m), xj:Array;
-            var VV:Function = dotVV;
-            var i:int,j:int,z:int;
-            --p;
-            --m;
-            for(i=m;i!==-1;--i) A[i] = Array(n);
-            --n;
-            for(i=n;i!==-1;--i) {
-                gc(y,i,v);
-                for(j=m;j!==-1;--j) {
-                    z=0;
-                    xj = x[j];
-                    A[j][i] = VV(xj,v);
-                }
-            }
-            return A;
+            if(i==0) x[0] = A[0][j];
         }
 
         private static function dotVV(x:Array,y:Array):Number {
@@ -227,15 +229,12 @@ package {
         }
 
         public static function clone(x:Array):Array{
-            var i:int;
-            var V:Function = cloneV;
-            var s = dim(x);
-            return _foreach2(x,s,0,V);
+            return _foreach2(x,dim(x),0,cloneV);
         }
 
         private static function cloneV(x:Array):Array {
             var _n:int = x.length;
-            var i:int, ret:Array = Array(_n);
+            var i:int, ret:Array = new Array(_n);
 
             for(i=_n-1;i!==-1;--i) {
                 ret[i] = (x[i]);
@@ -244,12 +243,10 @@ package {
         }
 
         private static function _foreach2(x:Array,s:Array,k:int,f:Function):Array {
-            if(k === s.length-1) { return f(x); }
-            var i:int,n:int=s[k], ret:Array = Array(n);
-            for(i=n-1;i>=0;i--) { ret[i] = _foreach2(x[i],s,k+1,f); }
+            if (k == s.length-1) { return f(x); }
+            var i:int,n:int=s[k], ret:Array = new Array(n);
+            for (i=n-1;i>=0;i--) { ret[i] = _foreach2(x[i],s,k+1,f); }
             return ret;
         }
-
-
     }
 }

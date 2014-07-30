@@ -1,5 +1,6 @@
 package {
     import flash.display.BitmapData;
+    import flash.geom.Rectangle;
 
     public class MosseFilter {
 
@@ -195,20 +196,38 @@ package {
 
             var image = _cc.getImageData(0, 0, _w, _h);
             var id = image.data;
+            */
+
+            var id:Vector.<uint> = input.getVector(new Rectangle(0, 0, _w, _h));
+
+            var pixelValue:uint;
+            var red:uint;
+            var green:uint;
+            var blue:uint;
 
             if (params.convertToGrayscale) {
                 // convert to grayscale
+
+
+
                 for (var i = 0; i < _arrlen; i++) {
-                    _image_array[i] = id[(4 * i)] * 0.3;
-                    _image_array[i] += id[(4 * i) + 1] * 0.59;
-                    _image_array[i] += id[(4 * i) + 2] * 0.11;
+                    pixelValue = id[i];
+                    red = pixelValue >> 16 & 0xff;
+                    green = pixelValue >> 8 & 0xff;
+                    blue = pixelValue & 0xff;
+
+                    _image_array[i] = red * 0.3;
+                    _image_array[i] += green * 0.59;
+                    _image_array[i] += blue * 0.11;
                 }
             } else {
                 // use only one channel
                 for (var i = 0; i < _arrlen; i++) {
-                    _image_array[i] = id[(4 * i)];
+                    pixelValue = id[i];
+                    red = pixelValue >> 16 & 0xff;
+                    _image_array[i] = red;
                 }
-            }*/
+            }
 
             // preprocess
             var prepImage = preprocess(_image_array);

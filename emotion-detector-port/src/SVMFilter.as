@@ -29,7 +29,7 @@ package {
             return rn;
         }
 
-        function complex_mult_inplace (cn1:Array, cn2:Array):void {
+        public function complex_mult_inplace (cn1:Array, cn2:Array):void {
             // in-place, cn1 is the one modified
             var temp1:Number, temp2:Number;
             for (var r = 0;r < filterLength;r++) {
@@ -49,7 +49,7 @@ package {
             filterLength = fft_size*fft_size;
             _fft = new FFT();
             _fft.init(fft_size);
-            fft_filters = Array(numPatches);
+            fft_filters = new Array(numPatches);
             var fft_filter:Array;
             var edge:Number = (filterWidth-1)/2;
 
@@ -78,8 +78,8 @@ package {
                 biases[i] = bias_input[i];
             }
 
-            responses = Array(numPatches);
-            temp_imag_part = Array(numPatches);
+            responses = new Array(numPatches);
+            temp_imag_part = new Array(numPatches);
             for (var i:int = 0;i < numPatches;i++) {
                 responses[i] = new Vector.<Number>(searchWidth*searchWidth);
                 temp_imag_part[i] = new Vector.<Number>(searchWidth*searchWidth);
@@ -91,7 +91,15 @@ package {
             search_width = searchWidth;
         }
 
-        function getResponses (patches:Array):Array {
+        public function getResponses (patches:Array):Array {
+
+
+            // - START HERE
+            //   IAD THIS RETURNS A ARRAY FULL OF NaN
+            // - START HERE
+
+
+
             var response:Array, edge:uint;
             var patch_width:uint = filter_width-1+search_width;
 
