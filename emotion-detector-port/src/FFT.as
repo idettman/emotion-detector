@@ -1,33 +1,29 @@
 package {
     public class FFT {
         var _n:int = 0;          // order
-        var _bitrev:Vector.<uint> = null;  // bit reversal table
+        var _bitrev:Vector.<int> = null;  // bit reversal table
         var _cstb:Vector.<Number> = null;    // sin/cos table
         var _tre:Vector.<Number>, _tim:Vector.<Number>;
 
 
-        public function FFT() {
-        }
+        public function FFT() {}
 
-
-        function init(n:int) {
+        function init(n:int):void {
             if (n !== 0 && (n & (n - 1)) === 0) {
                 _n = n;
                 _setVariables();
                 _makeBitReversal();
                 _makeCosSinTable();
-            } else {
-                throw new Error("init: radix-2 required");
-            }
+            } else throw new Error("init: radix-2 required");
         }
 
         // 1D-FFT
-        function fft1d(re:Vector.<Number>, im:Vector.<Number>) {
+        function fft1d(re:Vector.<Number>, im:Vector.<Number>):void {
             fft(re, im, 1);
         }
 
         // 1D-IFFT
-        function ifft1d(re:Vector.<Number>, im:Vector.<Number>) {
+        function ifft1d(re:Vector.<Number>, im:Vector.<Number>):void {
             var n:Number = 1 / _n;
             fft(re, im, -1);
             for (var i:int = 0; i < _n; i++) {
@@ -37,7 +33,7 @@ package {
         }
 
         // 2D-FFT
-        function fft2d(re:Vector.<Number>, im:Vector.<Number>) {
+        function fft2d(re:Vector.<Number>, im:Vector.<Number>):void {
             var i:Number = 0;
             // x-axis
             for (var y:int = 0; y < _n; y++) {
@@ -69,7 +65,7 @@ package {
         }
 
         // 2D-IFFT
-        function ifft2d(re:Array, im:Array) {
+        function ifft2d(re:Array, im:Array):void {
             var i:uint = 0;
             // x-axis
             for (var y:int = 0; y < _n; y++) {
@@ -100,17 +96,9 @@ package {
             }
         }
 
-
-
-
-
-
-
-
-
         // 2D-IFFT, real-valued
         // only outputs the real valued part
-        function real_ifft2d (re, im) {
+        function real_ifft2d (re:Array, im:Array):void {
             var i2;
             var i = 0;
             // x-axis
@@ -161,7 +149,7 @@ package {
         // http://cnx.org/content/m12021/latest/
         // http://images.apple.com/acg/pdf/g4fft.pdf
         // http://www.ti.com/lit/an/spra291/spra291.pdf
-        function real_fft2d (re, im) {
+        function real_fft2d (re:Array, im:Array):void {
             var i:int = 0, i2:int = 0;
             var fftlen:int = (_n*_n)-1;
             // x-axis
@@ -173,7 +161,8 @@ package {
                     _tre[x1] = re[x1 + i];
                     _tim[x1] = re[x1 + i2];
                 }
-                this.fft1d(_tre, _tim);
+                //this.fft1d(_tre, _tim);
+                fft(_tre, _tim, 1);
                 // untangle
                 re[0 + i] = _tre[0];
                 re[0 + i2] = _tim[0];
@@ -218,9 +207,9 @@ package {
 
 
         // core operation of FFT
-        function fft(re:Vector.<Number>, im:Vector.<Number>, inv:Number) {
-            var d:uint, h:uint, ik:uint, m:uint, tmp:Number, wr:Number, wi:Number, xr:Number, xi:Number,
-                    n4:uint = _n >> 2;
+        public function fft(re:Vector.<Number>, im:Vector.<Number>, inv:Number):void {
+            var d:int, h:int, ik:int, m:int, tmp:Number, wr:Number, wi:Number, xr:Number, xi:Number,
+                    n4:int = _n >> 2;
             // bit reversal
             for (var l:int = 0; l < _n; l++) {
                 m = _bitrev[l];
@@ -256,17 +245,17 @@ package {
 
         // set variables
         function _setVariables() {
-            _bitrev = new Vector.<uint>(_n);
+            _bitrev = new Vector.<int>(_n);
             _cstb = new Vector.<Number>(_n * 1.25);
             _tre = new Vector.<Number>(_n * _n);
             _tim = new Vector.<Number>(_n * _n);
         }
 
         // make bit reversal table
-        function _makeBitReversal() {
-            var i:uint = 0,
-                    j:uint = 0,
-                    k:uint = 0;
+        function _makeBitReversal():void {
+            var i:int = 0,
+                    j:int = 0,
+                    k:int = 0;
             _bitrev[0] = 0;
             while (++i < _n) {
                 k = _n >> 1;

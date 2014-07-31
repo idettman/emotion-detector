@@ -36,6 +36,7 @@ package {
 
             // init cml tracker
             ctrack = new CLMTracker();
+            ctrack.addEventListener("stopTrackingAndDrawPositions", stopTrackingAndDrawPositions);
             ctrack.init(clmModel);
 
             emotionModel = new EmotionModel();
@@ -48,6 +49,25 @@ package {
             video.addEventListener(Webcam.WEBCAM_INIT_FAIL, cameraInitFail);
             video.addEventListener(Webcam.WEBCAM_INIT_COMPLETE, cameraInitComplete);
             addChild(video);
+        }
+
+        private function stopTrackingAndDrawPositions(e:Event):void {
+            ctrack.removeEventListener(e.type, arguments.callee);
+            removeEventListener(Event.ENTER_FRAME, enterFrame);
+
+
+            var currentPositions:Array = ctrack.getCurrentPosition();
+
+            video.graphics.clear();
+            video.graphics.beginFill(0x00FF00);
+
+            var positions:Array;
+            for (var i:int = 0; i < currentPositions.length; i++) {
+                positions = currentPositions[i];
+                trace("positions:", positions[0], positions[1]);
+                video.graphics.drawCircle(Number(positions[0]), Number(positions[1]), 4);
+            }
+
         }
 
         private function removeCameraListeners():void {
@@ -102,9 +122,7 @@ package {
                     ctrack.box = faceTracker.faceRect;
                     if (ctrack.getCurrentPosition()) {
                         // check players emotions vs current target emotion
-
-                        video.bitmapData.fillRect(new Rectangle(0, 0, 100, 100), 0xff0000);
-
+                        //video.bitmapData.fillRect(new Rectangle(0, 0, 100, 100), 0xff0000);
                     }
                     var cp:Array = ctrack.getCurrentParameters();
                     var er:Array = emotionClassifier.meanPredict(cp);

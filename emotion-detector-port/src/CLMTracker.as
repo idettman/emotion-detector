@@ -3,8 +3,10 @@ package {
     import flash.events.Event;
     import flash.events.EventDispatcher;
     import flash.geom.Rectangle;
+	import flash.media.Microphone;
 
-    public class CLMTracker extends EventDispatcher{
+
+	public class CLMTracker extends EventDispatcher{
 
         var params:Object;
         var numPatches:int;
@@ -53,15 +55,11 @@ package {
         var eigenVectors:Array;
         var eigenValues:Array;
 
-
         /*
          It's possible to experiment with the sequence of variances used for the finding the maximum in the KDE.
          This sequence is pretty arbitrary, but was found to be okay using some manual testing.
          */
         var varianceSeq:Array = [10,5,1];
-        //var varianceSeq = [3,1.5,0.75];
-        //var varianceSeq = [6,3,0.75];
-
 
         var updatePosition:Vector.<Number> = new Vector.<Number>(2);
         var vecpos:Vector.<Number> = new Vector.<Number>(2);
@@ -254,6 +252,7 @@ package {
                 translateX = parseFloat(gi[2]);
                 translateY = parseFloat(gi[3]);
 
+                dispatchEvent(new Event("stopTrackingAndDrawPositions"));
 
                 first = false;
             } else {
@@ -291,8 +290,8 @@ package {
                     scoringHistory = [];
                     for (var i:int = 0;i < currentParameters.length;i++) {
                         currentParameters[i] = 0;
-                        previousParameters = [];
                     }
+                    previousParameters = [];
                     return false;
                 }
             }
@@ -350,14 +349,14 @@ package {
                 // calculate jacobian
                 jac = createJacobian(currentParameters, eigenVectors);
 
-                var opj0, opj1;
+                var opj0:Number, opj1:Number;
 
                 for (var j = 0;j < numPatches;j++) {
                     opj0 = originalPositions[j][0]-((searchWindow-1)*scaling/2);
                     opj1 = originalPositions[j][1]-((searchWindow-1)*scaling/2);
 
                     // calculate PI x gaussians
-                    var vpsum:uint = gpopt(searchWindow, currentPositions[j], updatePosition, vecProbs, responses, opj0, opj1, j, varianceSeq[i], scaling);
+                    var vpsum:Number= gpopt(searchWindow, currentPositions[j], updatePosition, vecProbs, responses, opj0, opj1, j, varianceSeq[i], scaling);
 
                     // calculate meanshift-vector
                     gpopt2(searchWindow, vecpos, updatePosition, vecProbs, vpsum, opj0, opj1, scaling);
@@ -402,7 +401,7 @@ package {
                 }
 
                 // clipping of parameters if they're too high
-                var clip:Number;
+                var clip:Number = 0;
                 for (var k:int = 0;k < numParameters;k++) {
                     clip = Math.abs(3*Math.sqrt(eigenValues[k]));
                     if (Math.abs(currentParameters[k+4]) > clip) {
@@ -500,7 +499,7 @@ package {
 
 
         // part one of meanshift calculation
-        private function gpopt (responseWidth, currentPositionsj, updatePosition, vecProbs, responses, opj0, opj1, j, variance, scaling):uint {
+        private function gpopt (responseWidth:int, currentPositionsj:Array, updatePosition:Vector.<Number>, vecProbs:Vector.<Number>, responses:Array, opj0:Number, opj1:Number, j:int, variance:Number, scaling:Number):Number {
             var pos_idx:uint = 0;
             var vpsum:Number = 0;
             var dx:Number, dy:Number;
@@ -522,30 +521,22 @@ package {
         }
 
         // part two of meanshift calculation
-        private function gpopt2 (responseWidth, vecpos, updatePosition, vecProbs, vpsum, opj0, opj1, scaling):void {
-            //for debugging
-            //var vecmatrix = [];
-
-            var pos_idx = 0;
-            var vecsum = 0;
+        private function gpopt2 (responseWidth:int, vecpos:Vector.<Number>, updatePosition:Vector.<Number>, vecProbs:Vector.<Number>, vpsum:Number, opj0:Number, opj1:Number, scaling:Number):void {
+            var pos_idx:int = 0;
+            var vecsum:Number = 0;
             vecpos[0] = 0;
             vecpos[1] = 0;
-            for (var k = 0;k < responseWidth;k++) {
+            for (var k:int = 0;k < responseWidth;k++) {
                 updatePosition[1] = opj1+(k*scaling);
-                for (var l = 0;l < responseWidth;l++) {
+                for (var l:int = 0;l < responseWidth;l++) {
                     updatePosition[0] = opj0+(l*scaling);
                     vecsum = vecProbs[pos_idx]/vpsum;
-
-                    //for debugging
-                    //vecmatrix[k*responseWidth + l] = vecsum;
 
                     vecpos[0] += vecsum*updatePosition[0];
                     vecpos[1] += vecsum*updatePosition[1];
                     pos_idx++;
                 }
             }
-            // for debugging
-            //return vecmatrix;
         }
 
 
@@ -553,21 +544,21 @@ package {
         private function createJacobian (parameters:Array, eigenVectors:Array):Array {
 
             var jacobian:Array = Numeric.rep([2*numPatches, numParameters+4],0.0);
-            var j0,j1;
-            for (var i = 0;i < numPatches;i ++) {
+            var j0:Number,j1:Number;
+            for (var i:int = 0;i < numPatches;i ++) {
                 // 1
-                j0 = meanShape[i][0];
-                j1 = meanShape[i][1];
-                for (var p = 0;p < numParameters;p++) {
+                j0 = Number(meanShape[i][0]);
+                j1 = Number(meanShape[i][1]);
+                for (var p:int = 0;p < numParameters;p++) {
                     j0 += parameters[p+4]*eigenVectors[i*2][p];
                     j1 += parameters[p+4]*eigenVectors[(i*2)+1][p];
                 }
                 jacobian[i*2][0] = j0;
                 jacobian[(i*2)+1][0] = j1;
                 // 2
-                j0 = meanShape[i][1];
-                j1 = meanShape[i][0];
-                for (var p = 0;p < numParameters;p++) {
+                j0 = Number(meanShape[i][1]);
+                j1 = Number(meanShape[i][0]);
+                for (var p:int = 0;p < numParameters;p++) {
                     j0 += parameters[p+4]*eigenVectors[(i*2)+1][p];
                     j1 += parameters[p+4]*eigenVectors[i*2][p];
                 }
@@ -580,7 +571,7 @@ package {
                 jacobian[i*2][3] = 0;
                 jacobian[(i*2)+1][3] = 1;
                 // the rest
-                for (var j = 0;j < numParameters;j++) {
+                for (var j:int = 0;j < numParameters;j++) {
                     j0 = parameters[0]*eigenVectors[i*2][j] - parameters[1]*eigenVectors[(i*2)+1][j] + eigenVectors[i*2][j];
                     j1 = parameters[0]*eigenVectors[(i*2)+1][j] + parameters[1]*eigenVectors[i*2][j] + eigenVectors[(i*2)+1][j];
                     jacobian[i*2][j+4] = j0;
@@ -651,7 +642,7 @@ package {
             // convert data to grayscale
             var scoringData:Vector.<Number> = new Vector.<Number>(20*22);
             var scdata:Vector.<uint> = bitmapData.getVector(new Rectangle(0,0,20,22));
-            var scmax:uint = 0;
+            var scmax:Number = 0;
 
             var pixelValue:uint;
             var red:uint;
@@ -718,8 +709,8 @@ package {
                 x = meanShape[i][0];
                 y = meanShape[i][1];
                 for (var j:int = 0;j < numParameters-4;j++) {
-                    x += model.shapeModel.eigenVectors[(i*2)][j]*parameters[j+4];
-                    y += model.shapeModel.eigenVectors[(i*2)+1][j]*parameters[j+4];
+                    x += eigenVectors[(i*2)][j]*parameters[j+4];
+                    y += eigenVectors[(i*2)+1][j]*parameters[j+4];
                 }
                 if (useTransforms) {
                     a = parameters[0]*x - parameters[1]*y + parameters[2];
@@ -823,14 +814,7 @@ package {
          *	get coordinates of current model fit
          */
         public function getCurrentPosition():Array {
-            /*var startTime:int = (new Date()).getTime();
-            while (((new Date()).getTime() - startTime) < 16) {
-                var tracking:Boolean = this.track();
-                if (!tracking) continue;
-            }*/
-
             this.track();
-
             if (first) {
                 return null;
             } else {

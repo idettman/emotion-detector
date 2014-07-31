@@ -2,7 +2,7 @@ package {
     public class SVMFilter {
 
         var _fft:FFT, fft_filters:Array, responses:Array, biases:Vector.<Number>;
-        var fft_size:uint, filterLength:uint, filter_width:uint, search_width:uint, num_patches:uint;
+        var fft_size:int, filterLength:int, filter_width:int, search_width:int, num_patches:int;
         var temp_imag_part:Array, temp_real_part:Array;
 
 
@@ -54,8 +54,8 @@ package {
             var edge:Number = (filterWidth-1)/2;
 
             for (var i:int = 0;i < numPatches;i++) {
-                var flar_fi0:Array = new Array(filterLength);
-                var flar_fi1:Array = new Array(filterLength);
+                var flar_fi0:Vector.<Number> = new Vector.<Number>(filterLength);
+                var flar_fi1:Vector.<Number> = new Vector.<Number>(filterLength);
 
                 // load filter
                 var xOffset:int, yOffset:int;
@@ -67,10 +67,15 @@ package {
                     }
                 }
 
+                var flar_fi0_array:Array = convertVectorToArray(flar_fi0, filterLength);
+                var flar_fi1_array:Array = convertVectorToArray(flar_fi1, filterLength);
+
                 // fft it and store
-                fft_filter = this.fft_inplace(flar_fi0, flar_fi1);
+                fft_filter = this.fft_inplace(flar_fi0_array, flar_fi1_array);
                 fft_filters[i] = fft_filter;
             }
+
+
 
             // set up biases
             biases = new Vector.<Number>(numPatches);
@@ -89,6 +94,17 @@ package {
             num_patches = numPatches;
             filter_width = filterWidth;
             search_width = searchWidth;
+        }
+
+        private function convertVectorToArray(v:Vector.<Number>, length:uint):Array {
+            var a:Array = new Array(filterLength);
+            var i:int = 0;
+            while(i<length) {
+                a[i] = v[i];
+                i++;
+            }
+
+            return a;
         }
 
         public function getResponses (patches:Array):Array {
