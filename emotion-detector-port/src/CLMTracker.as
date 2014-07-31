@@ -3,6 +3,7 @@ package
 	import flash.display.BitmapData;
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
+	import flash.geom.Matrix;
 	import flash.geom.Rectangle;
 
 
@@ -31,8 +32,6 @@ package
 		private var msxmin:Number;
 		private var msymax:Number;
 		private var msymin:Number;
-		private var msmodelwidth:Number;
-		private var msmodelheight:Number;
 		private var scoringWeights:Vector.<Number>;
 		private var scoringBias:Number;
 		private var biases:Object;
@@ -48,6 +47,9 @@ package
 		private var first:Boolean = true;
 		private var facecheck_count:int = 0;
 		private var relaxation:Number = 0.1;
+
+		private var sketchW:Number;
+		private var sketchH:Number;
 
 		private const halfPI:Number = Math.PI / 2;
 		private const convergenceLimit:Number = 0.01;
@@ -113,6 +115,8 @@ package
 			modelWidth = parseInt(this.model.patchModel.canvasSize[0]);
 			modelHeight = parseInt(this.model.patchModel.canvasSize[1]);
 
+
+
 			currentParameters = [];
 			previousParameters = [];
 			currentPositions = [];
@@ -159,8 +163,6 @@ package
 				if (meanShape[i][0] > msxmax) msxmax = meanShape[i][0];
 				if (meanShape[i][1] > msymax) msymax = meanShape[i][1];
 			}
-			msmodelwidth = msxmax - msxmin;
-			msmodelheight = msymax - msymin;
 
 			// get scoringweights if they exist
 			if (this.model.scoring) {
@@ -230,21 +232,29 @@ package
 			}
 		}
 
+
+		private var sketchCC:BitmapData;
 		public function start (bitmapData:BitmapData):void
 		{
+			sketchW = modelWidth + (searchWindow - 1) + patchSize - 1;
+			sketchH = modelHeight + (searchWindow - 1) + patchSize - 1;
+			sketchCC = new BitmapData(sketchW, sketchH, false);
+
 			this.bitmapData = bitmapData;
 		}
 
+
+		private var matrix:Matrix = new Matrix();
 		public function track ():Boolean
 		{
 			var scaling:Number, translateX:Number, translateY:Number, rotation:Number;
-			var croppedPatches:Array = [];
-			var ptch:Vector.<uint>, px:Number, py:Number;
+			var px:Number, py:Number;
 
+			sketchCC.draw(bitmapData);
 
 			if (first) {
 				// do viola-jones on canvas to get initial guess, if we don't have any points
-				var gi:Array = getInitialPosition(this.bitmapData);
+				var gi:Array = getInitialPosition(this.sketchCC);
 				if (!gi) {
 					return false;
 				}
@@ -280,6 +290,13 @@ package
 				translateY = parseFloat(currentParameters[3]);
 			}
 
+			matrix.identity();
+			matrix.scale(1 / scaling, 1 / scaling);
+			matrix.rotate(-rotation);
+			matrix.translate(-translateX, -translateY);
+			sketchCC.draw(bitmapData, matrix);
+
+
 
 			//	get cropped images around new points based on model parameters (not scaled and translated)
 			var patchPositions:Array = calculatePositions(currentParameters, false);
@@ -308,7 +325,7 @@ package
 			for (var i:int = 0; i < numPatches; i++) {
 				px = patchPositions[i][0] - (pw / 2);
 				py = patchPositions[i][1] - (pl / 2);
-				pdata = bitmapData.getVector(new Rectangle(Math.round(px), Math.round(py), pw, pl));
+				pdata = sketchCC.getVector(new Rectangle(Math.round(px), Math.round(py), pw, pl));
 
 				// convert to grayscale
 				pmatrix = patches[i];
@@ -640,11 +657,12 @@ package
 
 
 		// calculate score of current fit
+		private const scDataRect:Rectangle = new Rectangle(0, 0, 20, 22);
 		private function checkTracking ():Boolean
 		{
 			// convert data to grayscale
 			var scoringData:Vector.<Number> = new Vector.<Number>(20 * 22);
-			var scdata:Vector.<uint> = bitmapData.getVector(new Rectangle(0, 0, 20, 22));
+			var scdata:Vector.<uint> = sketchCC.getVector(scDataRect);
 			var scmax:Number = 0;
 
 			var pixelValue:uint;

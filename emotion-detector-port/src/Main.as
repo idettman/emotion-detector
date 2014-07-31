@@ -2,7 +2,7 @@ package {
 
 import flash.display.Sprite;
 
-[SWF(width="950",height="250",frameRate="30")]
+[SWF(width="950",height="250",frameRate="15")]
 public class Main extends Sprite {
 
     public function Main() {
