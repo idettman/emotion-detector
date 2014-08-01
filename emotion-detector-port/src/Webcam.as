@@ -22,6 +22,9 @@ package {
 
         private var fitWebcam:Matrix;
 
+	    private const WIDTH:Number = 400;
+	    private const HEIGHT:Number = 300;
+
 
         public function Webcam() {
             if(!stage){
@@ -39,7 +42,7 @@ package {
             }
 
             graphics.beginFill(0x00ffff);
-            graphics.drawRect(0,0,320,240);
+            graphics.drawRect(0,0,WIDTH,HEIGHT);
             graphics.endFill();
 
             addEventListener(MouseEvent.CLICK, onClick);
@@ -58,11 +61,10 @@ package {
                 if (camera.muted) {
                     camera.addEventListener(StatusEvent.STATUS, statusHandler);
                 }
-                camera.setMode(320, 240, 15, false);
+                camera.setMode(WIDTH, HEIGHT, 15, false);
 
-                bitmapData = new BitmapData(camera.width, camera.height, false, 0xff0000);
-
-                //fitWebcam = new Matrix();
+                bitmapData = new BitmapData(camera.width, camera.height, false);
+	            //fitWebcam = new Matrix();
                 //var scaleMult:Number = 320/bitmapData.width;
                 //fitWebcam.scale(scaleMult, scaleMult);
 
@@ -96,10 +98,6 @@ package {
             bitmapData.draw(video);
             graphics.beginBitmapFill(bitmapData, null, false);
             graphics.drawRect(0, 0, bitmapData.width, bitmapData.height);
-        }
-
-        public function play():void {
-
         }
     }
 }

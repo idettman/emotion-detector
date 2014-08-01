@@ -42,7 +42,7 @@ package {
             return prediction;
         }
 
-        public function predict(parameters:Array):Array {
+        public function predict(parameters:Vector.<Number>):Array {
             var prediction = [];
             for (var j = 0;j < emotions.length;j++) {
                 var e = emotions[j];
@@ -56,14 +56,14 @@ package {
             return prediction;
         }
 
-        public function meanPredict(parameters:Array):Array {
+        public function meanPredict(parameters:Vector.<Number>):Array {
             // store to array of 10 previous parameters
             previousParameters.splice(0, previousParameters.length == 10 ? 1 : 0);
             previousParameters.push(parameters.slice(0));
 
             if (previousParameters.length > 9) {
                 // calculate mean of parameters?
-                var meanParameters = [];
+                var meanParameters:Vector.<Number> = new Vector.<Number>(parameters.length);
                 for (var i = 0;i < parameters.length;i++) {
                     meanParameters[i] = 0;
                 }

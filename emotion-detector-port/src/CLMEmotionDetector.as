@@ -19,6 +19,8 @@ package
 		private var lastUpdateTimeCamera:uint = 0;
 		private var lastUpdateTimeFaceTracker:uint = 0;
 
+		private var detectedFace:Boolean = false;
+
 		public var debugLayer:Shape;
 
 
@@ -69,18 +71,16 @@ package
 
 		private function drawPositions ():void
 		{
-			var currentPositions:Array = ctrack.getCurrentPosition();
-
+			var currentPositions:Vector.<Vector.<Number>> = ctrack.getCurrentPosition();
 			if (!currentPositions) return;
 
-			var positions:Array;
-
+			var positions:Vector.<Number>;
 
 			debugLayer.graphics.clear();
 			debugLayer.graphics.beginFill(0x00FF00);
 			for (var i:int = 0; i < currentPositions.length; i++) {
 				positions = currentPositions[i];
-				debugLayer.graphics.drawCircle(Number(positions[0]), Number(positions[1]), 2);
+				debugLayer.graphics.drawCircle(Number(positions[0]), Number(positions[1]), 3);
 			}
 		}
 
@@ -128,7 +128,6 @@ package
 
 		private function enterFrame (e:Event):void
 		{
-
 			updateTime = getTimer();
 
 			if (updateTime - lastUpdateTimeCamera > 1000 / 15) {
@@ -136,52 +135,35 @@ package
 				video.update();
 			}
 
-			if (updateTime - lastUpdateTimeFaceTracker > 1000 / 2) {
+			if (updateTime - lastUpdateTimeFaceTracker > 1000 / 7) {
 				lastUpdateTimeFaceTracker = updateTime;
 
-				if (faceTracker.update()) {
-					ctrack.box = faceTracker.faceRect;
+				if (!detectedFace) {
+					if (faceTracker.update()) {
+						ctrack.box = faceTracker.faceRect;
+						detectedFace = true;
+					}
+				}
+				else {
 					if (ctrack.getCurrentPosition()) {
 						// check players emotions vs current target emotion
-						//video.bitmapData.fillRect(new Rectangle(0, 0, 100, 100), 0xff0000);
 					}
 					drawPositions();
 
-
-					var cp:Array = ctrack.getCurrentParameters();
-					var er:Array = emotionClassifier.meanPredict(cp);
-					if (er) {
-						//updateData(er);
-						for (var i:int = 0; i < er.length; i++) {
-							if (er[i].value > 0.4) {
-								// detect success
-							} else {
-								// detect fail
-							}
-						}
+					/*var cp:Vector.<Number> = ctrack.getCurrentParameters();
+					 var er:Array = emotionClassifier.meanPredict(cp);
+					 if (er) {
+					 //updateData(er);
+					 for (var i:int = 0; i < er.length; i++) {
+					 if (er[i].value > 0.4) {
+					 // detect success
+					 } else {
+					 // detect fail
+					 }
+					 }
+					 }*/
 					}
-				}
 			}
 		}
-
-		//private function updateData(data:Object):void {
-		// update
-		/*var rects = svg.selectAll("rect")
-		 .data(data)
-		 .attr("y", function(datum) { return height - y(datum.value); })
-		 .attr("height", function(datum) { return y(datum.value); });
-		 var texts = svg.selectAll("text.labels")
-		 .data(data)
-		 .attr("y", function(datum) { return height - y(datum.value); })
-		 .text(function(datum) { return datum.value.toFixed(1);});*/
-
-		// enter
-		//rects.enter().append("svg:rect");
-		//texts.enter().append("svg:text");
-
-		// exit
-		//rects.exit().remove();
-		//texts.exit().remove();
-		//}
 	}
 }

@@ -40,9 +40,7 @@ package {
             }
         }
 
-        function init (filter_input:Array, bias_input:Array, numPatches:uint, filterWidth:uint, searchWidth:uint) {
-
-            var fft:FFT;
+        function init (filter_input:Array, bias_input:Array, numPatches:uint, filterWidth:uint, searchWidth:uint):void {
 
             // calculate needed size of fft (has to be power of two)
             fft_size = upperPowerOfTwo(filterWidth-1+searchWidth);
@@ -63,7 +61,7 @@ package {
                     for (var k:int = 0;k < filterWidth;k++) {
                         xOffset = k < edge ? (fft_size-edge) : (-edge);
                         yOffset = j < edge ? (fft_size-edge) : (-edge);
-                        flar_fi0[k+xOffset+((j+yOffset)*fft_size)] = filter_input[i][(filterWidth-1-j)+((filterWidth-1-k)*filterWidth)];
+                        flar_fi0[k+xOffset+((j+yOffset)*fft_size)] = Number(filter_input[i][(filterWidth-1-j)+((filterWidth-1-k)*filterWidth)]);
                     }
                 }
 
@@ -80,7 +78,7 @@ package {
             // set up biases
             biases = new Vector.<Number>(numPatches);
             for (var i:int = 0;i < numPatches;i++) {
-                biases[i] = bias_input[i];
+                biases[i] = Number(bias_input[i]);
             }
 
             responses = new Array(numPatches);
@@ -103,20 +101,12 @@ package {
                 a[i] = v[i];
                 i++;
             }
-
             return a;
         }
 
-        public function getResponses (patches:Array):Array {
+        public function getResponses (patches:Vector.<Vector.<Number>>):Array {
 
-
-            // - START HERE
-            //   IAD THIS RETURNS A ARRAY FULL OF NaN
-            // - START HERE
-
-
-
-            var response:Array, edge:uint;
+	        var response:Array, edge:uint;
             var patch_width:uint = filter_width-1+search_width;
 
             for (var i:int = 0;i < num_patches;i++) {
@@ -126,7 +116,7 @@ package {
                 }
 
                 // normalize patches to 0-1
-                patches[i] = normalizePatches(patches[i]);
+                normalizePatches(patches[i]);
 
                 // patch must be padded (with zeroes) to match fft size
                 for (var j:int = 0;j < patch_width;j++) {
@@ -134,8 +124,6 @@ package {
                         temp_real_part[j + (fft_size*k)] = patches[i][k + (patch_width*j)];
                     }
                 }
-
-                //drawData(document.getElementById('sketch').getContext('2d'), temp_real_part, 32, 32, false, 0, 0);
 
                 // fft it
                 response = this.fft_inplace(temp_real_part);
@@ -150,7 +138,7 @@ package {
                 edge = (filter_width-1)/2;
                 for (var j:int = 0;j < search_width;j++) {
                     for (var k:int = 0;k < search_width;k++) {
-                        responses[i][j + (k*search_width)] = response[edge + k + ((j+edge)*(fft_size))];
+                        responses[i][j + (k*search_width)] = Number(response[edge + k + ((j+edge)*(fft_size))]);
                     }
                 }
 
@@ -169,7 +157,7 @@ package {
             return responses;
         }
 
-        function normalizePatches (patch:Vector.<Number>):Vector.<Number> {
+        function normalizePatches (patch:Vector.<Number>):void {
             var patch_width:uint = filter_width-1+search_width;
             var max:Number = 0;
             var min:Number = 1000;
@@ -189,10 +177,9 @@ package {
             var scale:Number = max-min;
             for (var j:int = 0;j < patch_width;j++) {
                 for (var k:int = 0;k < patch_width;k++) {
-                    patch[k + (patch_width*j)] = (patch[k + (patch_width*j)]-min)/scale;
+                    patch[k + (patch_width*j)] = (Number(patch[k + (patch_width*j)])-min)/scale;
                 }
             }
-            return patch;
         }
 
         function logisticResponse (response:Vector.<Number>):Vector.<Number> {
